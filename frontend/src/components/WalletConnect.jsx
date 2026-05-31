@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useWeb3 } from '../context/Web3Context';
 
 export default function WalletConnect() {
-  const { account, identity, connectWallet, isConnecting, error, identityManager } = useWeb3();
+  const { account, identity, connectWallet, isConnecting, error, identityManager, loadIdentity } = useWeb3();
   const [displayName, setDisplayName] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
 
@@ -13,7 +13,9 @@ export default function WalletConnect() {
     try {
       const tx = await identityManager.registerIdentity(displayName);
       await tx.wait();
-      window.location.reload(); // reload to fetch new identity
+      // Don't reload the page, just reload identity
+      await loadIdentity(identityManager, account);
+      setDisplayName('');
     } catch (err) {
       console.error(err);
       alert("Registration failed. See console.");

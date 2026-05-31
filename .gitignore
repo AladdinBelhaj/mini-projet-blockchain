@@ -14,6 +14,8 @@ coverage.json
 *.db
 .openzeppelin/
 
+frontend/package*.json
+
 # Environment Variables (CRITICAL for security)
 .env
 .env.local

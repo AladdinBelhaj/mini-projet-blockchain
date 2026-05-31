@@ -48,38 +48,70 @@ export const Web3Provider = ({ children }) => {
 
   const loadIdentity = async (idManager, acc) => {
     try {
+      console.log("loadIdentity called for", acc);
       const id = await idManager.getIdentity(acc);
-      if (id[1]) { // isActive
+      console.log("getIdentity result:", id);
+      if (id.isActive) { // Use the named property instead of index
         let role = "VIEWER";
-        if (await idManager.hasRole(await idManager.DEFAULT_ADMIN_ROLE(), acc)) role = "ADMIN";
-        else if (await idManager.hasRole(await idManager.EDITOR_ROLE(), acc)) role = "EDITOR";
+        const adminRole = await idManager.DEFAULT_ADMIN_ROLE();
+        const editorRole = await idManager.EDITOR_ROLE();
+        if (await idManager.hasRole(adminRole, acc)) role = "ADMIN";
+        else if (await idManager.hasRole(editorRole, acc)) role = "EDITOR";
         
+        console.log("Setting identity with role:", role);
         setIdentity({
-          displayName: id[0],
+          displayName: id.displayName,
           isActive: true,
           role: role
         });
       } else {
+        console.log("Identity not active");
         setIdentity(null);
       }
     } catch (e) {
+      console.error("loadIdentity error:", e);
       setIdentity(null);
     }
   };
 
   useEffect(() => {
     if (window.ethereum) {
-      window.ethereum.on('accountsChanged', (accounts) => {
+      const handleAccountsChanged = (accounts) => {
         if (accounts.length > 0) {
-          connectWallet(); // Reconnect with new account
+          // Don't call connectWallet, just update the account
+          setAccount(accounts[0]);
         } else {
           setAccount(null);
           setIdentity(null);
         }
-      });
-      window.ethereum.on('chainChanged', () => window.location.reload());
+      };
+      
+      const handleChainChanged = () => {
+        window.location.reload();
+      };
+
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', handleChainChanged);
+
+      return () => {
+        // Some providers expose removeEventListener, others use removeListener
+        if (typeof window.ethereum.removeEventListener === 'function') {
+          window.ethereum.removeEventListener('accountsChanged', handleAccountsChanged);
+          window.ethereum.removeEventListener('chainChanged', handleChainChanged);
+        } else if (typeof window.ethereum.removeListener === 'function') {
+          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+          window.ethereum.removeListener('chainChanged', handleChainChanged);
+        }
+      };
     }
   }, []);
+
+  // Load identity when account changes and we have a signer
+  useEffect(() => {
+    if (account && identityManager) {
+      loadIdentity(identityManager, account);
+    }
+  }, [account, identityManager]);
 
   return (
     <Web3Context.Provider value={{
